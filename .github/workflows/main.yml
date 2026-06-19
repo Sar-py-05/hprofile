@@ -26,10 +26,9 @@ jobs:
 
       # Run Checkstyle
       - name: Checkstyle
-        run:
-          mvn checkstyle:checkstyle
+        run: mvn checkstyle:checkstyle
 
-          # SonarQube Scan
+      # SonarQube Scan
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
