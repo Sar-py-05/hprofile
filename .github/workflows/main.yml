@@ -18,8 +18,8 @@ jobs:
           java-version: "11"
           cache: maven
 
-      - name: Maven Test
-        run: mvn test
+      - name: Maven Verify
+        run: mvn clean verify
 
       - name: Verify Sonar Secrets
         run: |
