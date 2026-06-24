@@ -12,7 +12,7 @@ env:
   ECS_CLUSTER: vproapp-act
   ECS_SERVICE: vproapp-act-svc
 
-  ECS_TASK_DEFINITION: aws-files/taskdef.json
+  ECS_TASK_DEFINITION: aws-files/taskdeffile.json
   CONTAINER_NAME: vproapp
 
 jobs:
