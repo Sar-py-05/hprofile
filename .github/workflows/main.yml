@@ -8,6 +8,11 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
+  ECR_REPOSITORY: actapp
+  ECS_SERVICE: vproapp-act-svc
+  ECS_CLUSTER: vproapp-act
+  ECS_TASK_DEFINITION: aws-files/taskdeffile.jason
+  CONTAINER_NAME: vproapp
 
 jobs:
   Testing:
@@ -81,3 +86,28 @@ jobs:
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
+  Deploy:
+    needs: BUILD_AND_PUBLISH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: my-container
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: my-service
+          cluster: my-cluster
+          wait-for-service-stability: true
+
+
