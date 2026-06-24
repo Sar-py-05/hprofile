@@ -11,7 +11,7 @@ env:
   ECR_REPOSITORY: actapp
   ECS_SERVICE: vproapp-act-svc
   ECS_CLUSTER: vproapp-act
-  ECS_TASK_DEFINITION: aws-files/taskdeffile.jason
+  ECS_TASK_DEFINITION: aws-files/taskdef.json
   CONTAINER_NAME: vproapp
 
 jobs:
@@ -54,11 +54,13 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_URL }} \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
-  #      - name: Quality Gate Check
-  #        uses: SonarSource/sonarqube-quality-gate-action@master
-  #        timeout-minutes: 5
-  #        env:
-  #          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # Re-enable later after code quality improves
+      #
+      # - name: Quality Gate Check
+      #   uses: SonarSource/sonarqube-quality-gate-action@master
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   BUILD_AND_PUBLISH:
     needs: Testing
@@ -86,6 +88,7 @@ jobs:
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
+
   Deploy:
     needs: BUILD_AND_PUBLISH
     runs-on: ubuntu-latest
@@ -94,20 +97,25 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fill in New Image ID in ECS Task Definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: task-definition.json
-          container-name: my-container
-          image: ${{ steps.build-image.outputs.image }}
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ secrets.REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.run_number }}
 
-      - name: Deploy Amazon ECS task definition
+      - name: Deploy ECS Task Definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: my-service
-          cluster: my-cluster
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
-
-
