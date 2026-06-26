@@ -1,19 +1,13 @@
 name: Hprofile Action
 
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: actapp
-
-  ECS_CLUSTER: vproapp-act
-  ECS_SERVICE: vproapp-act-svc
-
-  ECS_TASK_DEFINITION: aws-files/taskdeffile.json
-  CONTAINER_NAME: vproapp
 
 jobs:
   Testing:
@@ -55,20 +49,15 @@ jobs:
             -Dsonar.host.url=${{ secrets.SONAR_URL }} \
             -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
-      # Uncomment later after improving coverage
-      #
-      # - name: Quality Gate Check
-      #   uses: SonarSource/sonarqube-quality-gate-action@master
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #      - name: Quality Gate Check
+  #        uses: SonarSource/sonarqube-quality-gate-action@master
+  #        timeout-minutes: 5
+  #        env:
+  #          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   BUILD_AND_PUBLISH:
     needs: Testing
     runs-on: ubuntu-latest
-
-    outputs:
-      image_tag: ${{ github.run_number }}
 
     steps:
       - name: Checkout Code
@@ -80,7 +69,7 @@ jobs:
           sed -i "s/^jdbc.password.*$/jdbc.password=${{ secrets.RDS_PASS }}/" src/main/resources/application.properties
           sed -i "s/db01/${{ secrets.RDS_ENDPOINT }}/" src/main/resources/application.properties
 
-      - name: Build and Push Image to ECR
+      - name: Upload Image to ECR
         uses: appleboy/docker-ecr-action@master
         with:
           access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -92,34 +81,3 @@ jobs:
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
-
-  Deploy:
-    needs: BUILD_AND_PUBLISH
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Render ECS Task Definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ secrets.REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.run_number }}
-
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
